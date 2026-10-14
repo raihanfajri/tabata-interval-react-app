@@ -1,32 +1,34 @@
-# React + TypeScript + Vite
+# tabata-interval-react-app
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+An interval timer for Android phones. Set Prepare, Work, Rest, Rest between sets, the number of sets and cycles per set on the "New Workout" form, then run the workout. Each stage has its own full-screen colour, there's a 3-2-1 beep and vibration, a whistle when Work starts and a boxing bell for rest. It keeps the screen awake, and the workout keeps its time if the app is closed.
 
-Currently, two official plugins are available:
+It's built with React 19, TypeScript and Vite. It ships two ways from the same code:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Installable PWA** that works offline (`vite-plugin-pwa`).
+- **Android APK** for sideloading, wrapped with Capacitor.
 
-## React Compiler
+## Develop
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```sh
+npm install
+npm run dev        # dev server
+npm run test:run   # Vitest + React Testing Library
+npm run lint       # oxlint
+npm run build      # type-check and build the PWA into dist/
+npm run preview    # serve dist/ to test install and offline use
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Build the Android APK
+
+Needs Android Studio, at its default install path, with the Android SDK. The build script runs on Windows.
+
+```sh
+npm run build:android
+```
+
+This writes the debug APK to `android/app/build/outputs/apk/debug/app-debug.apk`. To install it, use `adb install -r <apk>` with USB debugging on, or copy the file to the phone and open it.
+
+## Docs
+
+- `docs/docs.md` covers how the app behaves, its design notes, known limitations and how to build and install the APK.
+- `CLAUDE.md` covers project conventions and commands.
