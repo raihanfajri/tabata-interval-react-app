@@ -1,0 +1,87 @@
+:root {
+  --text: #5d5866;
+  --text-h: #08060d;
+  --bg: #fff;
+  --surface: #fff;
+  --border: #d9d7dd;
+  --accent: #8a2be2;
+  --rest: #0f766e;
+  --prepare: #b45309;
+  --set-rest: #1d4ed8;
+  --on-accent: #fff;
+  --danger: #b3261e;
+
+  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+
+  /* Mobile (Android / Material 3): 48dp min touch target, 8dp grid, 16dp phone gutter */
+  --touch-min: 48px;
+  --space: 8px;
+  --gutter: 16px;
+
+  /* No double-tap-to-zoom delay on taps; pinch zoom still works */
+  touch-action: manipulation;
+
+  font: 16px/1.5 var(--sans);
+  color-scheme: light dark;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #b4b8c0;
+    --text-h: #f3f4f6;
+    --bg: #16171d;
+    --surface: #24252d;
+    --border: #3a3c48;
+    --accent: #c084fc;
+    --rest: #2dd4bf;
+    --prepare: #fbbf24;
+    --set-rest: #60a5fa;
+    --on-accent: #16171d;
+    --danger: #f2b8b5;
+  }
+}
+
+body {
+  margin: 0;
+  /* Keep content clear of display cutouts and gesture bars (viewport-fit=cover) */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+#root {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+:where(button, input, select, textarea, [role='button']) {
+  min-height: var(--touch-min);
+}
+
+:where(button, [role='button']) {
+  min-width: var(--touch-min);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

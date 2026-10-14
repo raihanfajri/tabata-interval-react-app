@@ -1,0 +1,228 @@
+.timer {
+  --kind: var(--accent);
+
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  padding: var(--space) var(--gutter) calc(var(--space) * 3);
+  box-sizing: border-box;
+}
+
+.timer[data-kind='rest'] {
+  --kind: var(--rest);
+}
+
+/* Prepare is its own screen: edge-to-edge amber (behind the status bar,
+   cutout and gesture bar too), text and controls inverted on top of it. */
+:root:has(.timer[data-kind='prepare']) {
+  background: var(--prepare);
+}
+
+/* The rest between sets is its own full-screen (blue) too. */
+:root:has(.timer[data-kind='setRest']) {
+  background: var(--set-rest);
+}
+
+.timer[data-kind='prepare'] {
+  --kind: var(--prepare);
+}
+
+.timer[data-kind='setRest'] {
+  --kind: var(--set-rest);
+}
+
+.timer:is([data-kind='prepare'], [data-kind='setRest']) {
+  color: var(--on-accent);
+}
+
+.timer:is([data-kind='prepare'], [data-kind='setRest'])
+  :is(.timer__name, .timer__time, .timer__chip, .timer__paused, .timer__complete) {
+  color: var(--on-accent);
+}
+
+.timer[data-kind='prepare'] .timer__name {
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.timer[data-kind='prepare'] .timer__time {
+  font-size: clamp(9rem, 55vw, 18rem);
+  font-weight: 600;
+}
+
+.timer:is([data-kind='prepare'], [data-kind='setRest']) .timer__primary {
+  background: var(--on-accent);
+  color: var(--prepare);
+}
+
+.timer:is([data-kind='prepare'], [data-kind='setRest']) :is(.timer__reset, .timer__chip) {
+  border-color: currentColor;
+  color: var(--on-accent);
+}
+
+.timer:is([data-kind='prepare'], [data-kind='setRest']) :is(.timer__primary, .timer__reset):focus-visible {
+  outline-color: var(--on-accent);
+}
+
+.timer__next {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.timer__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--touch-min);
+}
+
+.timer__chips {
+  display: flex;
+  gap: var(--space);
+}
+
+/* "SET 1/2", "ROUND 3/8" */
+.timer__chip {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-h);
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.timer__complete {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.timer[data-kind='setRest'] .timer__name {
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.timer__reset {
+  padding: 0 calc(var(--space) * 2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-h);
+  font: inherit;
+}
+
+.timer__display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space);
+  text-align: center;
+}
+
+.timer__name {
+  margin: 0;
+  color: var(--kind);
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.timer__time {
+  margin: 0;
+  color: var(--text-h);
+  font-size: clamp(5rem, 28vw, 10rem);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* Reserves its line so the layout doesn't jump when pausing. */
+.timer__paused {
+  min-height: 1.5em;
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.timer__primary {
+  width: 100%;
+  min-height: 64px;
+  border: none;
+  border-radius: 32px;
+  background: var(--kind);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.timer__primary:disabled {
+  opacity: 0.38;
+}
+
+.timer__primary:focus-visible,
+.timer__reset:focus-visible,
+.sheet button:focus-visible {
+  outline: 3px solid var(--text-h);
+  outline-offset: 3px;
+}
+
+/* Material-style modal bottom sheet */
+.scrim {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  background: rgb(0 0 0 / 0.5);
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space);
+  width: 100%;
+  padding: calc(var(--space) * 3) var(--gutter)
+    calc(var(--space) * 3 + env(safe-area-inset-bottom));
+  border-radius: 28px 28px 0 0;
+  background: var(--surface);
+  box-sizing: border-box;
+}
+
+.sheet__title {
+  margin: 0;
+  color: var(--text-h);
+  font-size: 1.5rem;
+  font-weight: 500;
+}
+
+.sheet__body {
+  margin: 0 0 calc(var(--space) * 2);
+}
+
+.sheet__danger,
+.sheet__cancel {
+  min-height: 56px;
+  border-radius: 28px;
+  font: inherit;
+  font-weight: 600;
+}
+
+.sheet__danger {
+  border: 1px solid var(--danger);
+  background: none;
+  color: var(--danger);
+}
+
+.sheet__cancel {
+  border: none;
+  background: var(--accent);
+  color: var(--on-accent);
+}

@@ -1,0 +1,43 @@
+{
+  "name": "interval-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "build:android": "tsc -b && vite build --mode android && cap sync android && cd android && set \"JAVA_HOME=C:\\Program Files\\Android\\Android Studio\\jbr\" && .\\gradlew.bat assembleDebug",
+    "icons:android": "node scripts/android-icon.mjs && capacitor-assets generate --android --assetPath node_modules/.tmp/android-icon --iconBackgroundColor #ffffff --iconBackgroundColorDark #ffffff --splashBackgroundColor #16171d --splashBackgroundColorDark #16171d"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.3",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vite-pwa/assets-generator": "^2.0.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "@vitest/coverage-v8": "^5.0.4",
+    "jsdom": "^30.1.2",
+    "oxlint": "^1.81.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0",
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.0.4"
+  }
+}
