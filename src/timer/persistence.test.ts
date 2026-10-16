@@ -75,4 +75,10 @@ describe('workout shape changes', () => {
     expect(loadTimer(buildWorkout({ ...DEFAULT_SETTINGS, workSec: 30 }))).toBeNull()
     expect(loadTimer(buildWorkout(DEFAULT_SETTINGS))).toEqual(getMockSaved())
   })
+
+  it('a timer saved under the old name, from when the workout ended with a Rest, is ignored by the default workout', () => {
+    saveTimer({ ...buildWorkout(DEFAULT_SETTINGS), name: 'Custom 8/20/10/30 · 2×8' }, getMockSaved())
+
+    expect(loadTimer(buildWorkout(DEFAULT_SETTINGS))).toBeNull()
+  })
 })

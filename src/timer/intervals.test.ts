@@ -163,19 +163,19 @@ describe('withSets', () => {
 const DEFAULT_WORKOUT = buildWorkout(DEFAULT_SETTINGS)
 
 describe('sets in the default workout', () => {
-  // Indexes: 0 Prepare; 1–15 set 1 (Work on odd); 16 the break; 17–32 set 2 (Work on odd).
+  // Indexes: 0 Prepare; 1–15 set 1 (Work on odd); 16 the break; 17–31 set 2 (Work on odd), ending on Work.
   it.each([
     ['Prepare', 0, { round: 1, total: 8 }],
     ["set 1's last Work", 15, { round: 8, total: 8 }],
     ['the break', 16, { round: 8, total: 8 }],
     ["set 2's first Work", 17, { round: 1, total: 8 }],
-    ["set 2's last Rest", 32, { round: 8, total: 8 }],
+    ["set 2's last Work", 31, { round: 8, total: 8 }],
   ])('getRound restarts per set: %s', (_label, index, expected) => {
     expect(getRound(DEFAULT_WORKOUT, index)).toEqual(expected)
   })
 
   it('getRound returns nothing for Done in the default workout', () => {
-    expect(getRound(DEFAULT_WORKOUT, 33)).toBeNull()
+    expect(getRound(DEFAULT_WORKOUT, 32)).toBeNull()
   })
 
   it.each([
@@ -183,13 +183,13 @@ describe('sets in the default workout', () => {
     ["set 1's last Work", 15, { set: 1, total: 2 }],
     ['the break', 16, { set: 1, total: 2 }],
     ["set 2's first Work", 17, { set: 2, total: 2 }],
-    ["set 2's last Rest", 32, { set: 2, total: 2 }],
+    ["set 2's last Work", 31, { set: 2, total: 2 }],
   ])('getSet: %s', (_label, index, expected) => {
     expect(getSet(DEFAULT_WORKOUT, index)).toEqual(expected)
   })
 
   it('getSet returns nothing for Done, and 1 of 1 for a workout without sets', () => {
-    expect(getSet(DEFAULT_WORKOUT, 33)).toBeNull()
+    expect(getSet(DEFAULT_WORKOUT, 32)).toBeNull()
     expect(getSet(getMockWorkout(), 0)).toEqual({ set: 1, total: 1 })
   })
 })

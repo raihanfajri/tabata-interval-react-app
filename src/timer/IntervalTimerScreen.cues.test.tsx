@@ -200,6 +200,16 @@ describe('IntervalTimerScreen: transition sounds', () => {
     expect(bellCount()).toBe(2) // Work→Rest, Rest→Done
   })
 
+  it('plays the bell once when the last Work ends and the workout is Done', async () => {
+    const { user } = renderScreen(buildWorkout({ ...DEFAULT_SETTINGS, prepareSec: 0, sets: 1, cycles: 1 }))
+    await user.click(screen.getByRole('button', { name: 'Start' }))
+
+    await advance(20_000)
+
+    expect(screen.getByRole('heading', { name: 'Done' })).toBeInTheDocument()
+    expect(bellCount()).toBe(1) // Work→Done
+  })
+
   it('plays the whistle when Restart is tapped after Done', async () => {
     const { user } = renderScreen()
     await user.click(screen.getByRole('button', { name: 'Start' }))

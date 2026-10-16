@@ -14,7 +14,7 @@ afterEach(() => {
 const advance = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms))
 
 describe('New Workout form', () => {
-  it('opens on the "New Workout" form with the default values and "Total 8:28" when nothing is saved or in progress', () => {
+  it('opens on the "New Workout" form with the default values and "Total 8:18" when nothing is saved or in progress', () => {
     renderWithProviders(<App />)
 
     expect(screen.getByRole('heading', { name: 'New Workout' })).toBeInTheDocument()
@@ -24,7 +24,7 @@ describe('New Workout form', () => {
     expect(screen.getByRole('textbox', { name: 'Rest between sets (seconds)' })).toHaveValue('30')
     expect(screen.getByRole('textbox', { name: 'Sets' })).toHaveValue('2')
     expect(screen.getByRole('textbox', { name: 'Cycles per set' })).toHaveValue('8')
-    expect(screen.getByText('Total 8:28')).toBeInTheDocument()
+    expect(screen.getByText('Total 8:18')).toBeInTheDocument()
     expect(screen.queryByRole('timer')).not.toBeInTheDocument()
   })
 
@@ -34,7 +34,7 @@ describe('New Workout form', () => {
 
     await user.clear(work)
     await user.type(work, '30')
-    expect(screen.getByText('Total 11:08')).toBeInTheDocument()
+    expect(screen.getByText('Total 10:58')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Start' }))
     await advance(8_000)
@@ -307,10 +307,11 @@ describe('App', () => {
       expect(screen.getByRole('button', { name: 'Resume' })).toBeInTheDocument()
     })
 
-    it("Done follows set 2's last Rest, with no second break", async () => {
-      await startAndAdvance(507_000) // set 2's last Rest
+    it("Done follows set 2's last Work, with no Rest and no second break in between", async () => {
+      await startAndAdvance(497_000) // set 2's last Work, 0:01 left
 
-      expect(screen.getByRole('heading', { name: 'Rest' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Work' })).toBeInTheDocument()
+      expect(screen.getByText('Round 8/8')).toBeInTheDocument()
       expect(screen.getByText('Set 2/2')).toBeInTheDocument()
 
       await advance(1_000)

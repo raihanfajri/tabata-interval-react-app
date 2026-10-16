@@ -5,6 +5,8 @@ import { FakeAudioContext } from '../test/fakeAudio.ts'
 import { renderWithProviders } from '../test/render.tsx'
 import IntervalTimerScreen from './IntervalTimerScreen.tsx'
 import { withPrepare, withSets } from './intervals.ts'
+import { saveTimer } from './persistence.ts'
+import { buildWorkout, DEFAULT_SETTINGS } from './settings.ts'
 import * as sounds from './sounds.ts'
 
 // getMockWorkout(): Work 20s, then Rest 10s.
@@ -31,6 +33,16 @@ afterEach(() => {
 })
 
 describe('IntervalTimerScreen: closed and reopened', () => {
+  it('reopening with a timer saved under the old name (workout ending with a Rest) opens a fresh workout at Prepare', () => {
+    const workout = buildWorkout(DEFAULT_SETTINGS)
+    saveTimer({ ...workout, name: 'Custom 8/20/10/30 · 2×8' }, { startedAt: Date.now() - 60_000, pausedAt: null, pausedTotalMs: 0 })
+
+    openApp(workout)
+
+    expect(screen.getByRole('heading', { name: 'Prepare' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start' })).toBeInTheDocument()
+  })
+
   it('reopening a workout that was running at 0:15 and closed for 5s shows 0:10, still running', async () => {
     const app = openApp()
     await app.user.click(screen.getByRole('button', { name: 'Start' }))

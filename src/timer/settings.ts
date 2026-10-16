@@ -32,8 +32,13 @@ export function buildWorkout(settings: TimerSettings): Workout {
   ]).flat()
   // The name encodes every setting: saved timers are keyed by workout name, so
   // different settings must never share a key (see docs/docs.md, Persistence).
-  const name = `Custom ${prepareSec}/${workSec}/${restSec}/${setRestSec} · ${sets}×${cycles}`
-  const workout = withSets({ name, intervals: cycle }, { sets, restBetweenSec: setRestSec })
+  // "v2": the workout no longer ends with a Rest, so timers saved by the old
+  // shape must not reopen against this one.
+  const name = `Custom ${prepareSec}/${workSec}/${restSec}/${setRestSec} · ${sets}×${cycles} · v2`
+  const { intervals } = withSets({ name, intervals: cycle }, { sets, restBetweenSec: setRestSec })
+  // Nothing follows the last Work, so a Rest after it would only delay Done.
+  const endsWithRest = intervals.at(-1)?.kind === 'rest'
+  const workout = { name, intervals: endsWithRest ? intervals.slice(0, -1) : intervals }
   return prepareSec > 0 ? withPrepare(workout, prepareSec) : workout
 }
 

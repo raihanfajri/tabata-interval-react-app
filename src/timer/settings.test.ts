@@ -10,12 +10,40 @@ import {
 } from './settings.ts'
 
 describe('buildWorkout', () => {
-  it("with the defaults matches today's workout: 33 intervals, 8:28", () => {
+  it('with the defaults has 32 intervals and lasts 8:18', () => {
     const workout = buildWorkout(DEFAULT_SETTINGS)
 
-    expect(workout.intervals).toHaveLength(33)
-    expect(getTimerState(workout, 507_999).finished).toBe(false)
-    expect(getTimerState(workout, 508_000).finished).toBe(true)
+    expect(workout.intervals).toHaveLength(32)
+    expect(getTimerState(workout, 497_999).finished).toBe(false)
+    expect(getTimerState(workout, 498_000).finished).toBe(true)
+  })
+
+  it.each([
+    ['the defaults', {}],
+    ['1 set', { sets: 1 }],
+  ])('ends on Work, with no Rest after the last Work: %s', (_label, settings) => {
+    expect(buildWorkout({ ...DEFAULT_SETTINGS, ...settings }).intervals.at(-1)?.kind).toBe('work')
+  })
+
+  it('keeps the Rests between cycles: every Work but the last is followed by a Rest or the break', () => {
+    const intervals = buildWorkout(DEFAULT_SETTINGS).intervals
+    const afterWork = intervals.flatMap((i, n) => (i.kind === 'work' ? [intervals[n + 1]?.kind] : []))
+
+    expect(afterWork.slice(0, -1).every((k) => k === 'rest' || k === 'setRest')).toBe(true)
+    expect(afterWork.at(-1)).toBeUndefined()
+  })
+
+  it.each([
+    ['Prepare 8', 8, ['prepare', 'work']],
+    ['Prepare 0', 0, ['work']],
+  ] as const)('with 1 set × 1 cycle builds only Prepare and Work: %s', (_label, prepareSec, expected) => {
+    const intervals = buildWorkout({ ...DEFAULT_SETTINGS, sets: 1, cycles: 1, prepareSec }).intervals
+
+    expect(intervals.map((i) => i.kind)).toEqual(expected)
+  })
+
+  it('the default workout is not named in the old format, so timers saved before the last Rest was removed are ignored', () => {
+    expect(buildWorkout(DEFAULT_SETTINGS).name).not.toBe('Custom 8/20/10/30 · 2×8')
   })
 
   const kinds = (settings: Partial<typeof DEFAULT_SETTINGS>) =>
@@ -52,17 +80,22 @@ describe('buildWorkout', () => {
   it('with Rest 0 has no Rest intervals (Work follows Work), and the breaks remain', () => {
     const intervals = kinds({ restSec: 0 })
 
+    expect(intervals).toHaveLength(18)
     expect(intervals.some((i) => i.kind === 'rest')).toBe(false)
     expect(intervals.filter((i) => i.kind === 'work')).toHaveLength(16)
     expect(intervals.filter((i) => i.kind === 'setRest')).toHaveLength(1)
     expect(intervals.some((i) => i.durationSec === 0)).toBe(false)
   })
 
-  it('with Rest between sets 0 has no break, and each set keeps its last Rest', () => {
+  it('with Rest between sets 0 has no break, set 1 keeps its last Rest, and set 2 ends on Work', () => {
     const intervals = kinds({ setRestSec: 0 })
 
     expect(intervals.some((i) => i.kind === 'setRest')).toBe(false)
-    expect(intervals.filter((i) => i.kind === 'rest')).toHaveLength(16)
+    expect(intervals.filter((i) => i.kind === 'rest')).toHaveLength(15)
+    // 0 Prepare; 1–16 set 1 (ends with Rest 8); 17–31 set 2.
+    expect(intervals[16].kind).toBe('rest')
+    expect(intervals[17].kind).toBe('work')
+    expect(intervals.at(-1)?.kind).toBe('work')
   })
 
   it('with 1 set has no break', () => {

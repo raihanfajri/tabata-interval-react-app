@@ -4,21 +4,21 @@ An installable PWA interval timer for Android, also built as a sideloaded Androi
 
 ## Behaviour
 
-Decided 2026-10-14 (plans `interval-timer-screen`, `prepare-timer`, `add-sets-and-rest-between-sets-screen`, `android-apk` and `custom-time-settings`, all closed the same day).
+Decided 2026-10-14 (plans `interval-timer-screen`, `prepare-timer`, `add-sets-and-rest-between-sets-screen`, `android-apk` and `custom-time-settings`, all closed the same day) and 2026-10-16 (plan `remove-last-rest`).
 
 - **Workout:** built from the form's settings by `buildWorkout(settings)` in `src/timer/settings.ts`, using `withSets()` and `withPrepare()`. With the defaults (Prepare 8s, Work 20s, Rest 10s, Rest between sets 30s, 2 sets × 8 cycles):
   1. Prepare, 8s.
   2. Set 1: Work/Rest × 7, then Work.
   3. Rest between sets, 30s. It replaces set 1's last 10s Rest.
-  4. Set 2: Work/Rest × 8.
+  4. Set 2: Work/Rest × 7, then Work.
   5. Done.
 
-  That's 33 intervals and 8:28 in total. **0 removes that screen:**
+  That's 32 intervals and 8:18 in total. The workout always ends on its last Work: a Rest after it is dropped, because nothing follows it. **0 removes that screen:**
   - Prepare 0 means Start goes straight to Work.
   - Rest 0 means Work follows Work.
-  - Rest between sets 0 means no break, so each set keeps its last Rest and sets run back to back.
+  - Rest between sets 0 means no break, so every set but the last keeps its last Rest and sets run back to back.
 
-  Work is at least 1s. The workout's name encodes every setting, e.g. "Custom 8/20/10/30 · 2×8".
+  Work is at least 1s. The workout's name encodes every setting, e.g. "Custom 8/20/10/30 · 2×8 · v2".
 - **New Workout form:** the screen the app opens on, headed "New Workout".
 
   | Field | Limits | − / + step |
@@ -32,7 +32,7 @@ Decided 2026-10-14 (plans `interval-timer-screen`, `prepare-timer`, `add-sets-an
 
   - **Editing:** − / + stop at the limits, and from an invalid value they start over at the minimum. Tapping a value opens the numeric keyboard for exact entry.
   - **Errors:** an empty, non-whole or out-of-range value shows an error under its field (announced, and tied to the field by `aria-describedby`). The large bottom Start button is disabled until it's fixed.
-  - **Total:** a "Total 8:28" line updates as values change, and shows "Total –" while any value is invalid.
+  - **Total:** a "Total 8:18" line updates as values change, and shows "Total –" while any value is invalid.
   - **Remembered:** Start saves the settings (`localStorage`), and the next launch shows them. Corrupt data or blocked storage falls back to the defaults without errors.
 - **Navigation and Android back:** Start on the form opens the timer and starts the workout at once. There's no in-app back or Settings button. Android back is the way to the form.
   - **Running or paused:** back pauses the workout and opens a "Reset workout and go back to settings?" sheet. Cancel returns to the previous state, like the Reset sheet. Reset clears the workout and shows the form with the same settings.
@@ -80,7 +80,7 @@ Decided 2026-10-14 (plans `interval-timer-screen`, `prepare-timer`, `add-sets-an
   | Start, Restart into Prepare | Nothing |
   | Start, Restart straight into Work (Prepare 0) | Whistle |
   | Prepare → Work, Rest → Work, break → Work, Work → Work (Rest 0) | Whistle |
-  | Work → Rest, Work → Rest between sets, last interval → Done | Boxing bell |
+  | Work → Rest, Work → Rest between sets, last Work → Done | Boxing bell |
   | 0:03, 0:02, 0:01 of every interval | Beep + 100 ms vibration |
   | Resume | Nothing |
 
@@ -117,10 +117,10 @@ These are the non-obvious parts. The tests in `src/timer/*.test.ts(x)` pin each 
   - the screen variants in `IntervalTimerScreen`, with shared full-screen rules via `:root:has(.timer[data-kind=…])`
   - the counters
 
-  `withPrepare` and `withSets` wrap a workout. `withSets` replaces a set's last interval with the break only if it's a Rest, and otherwise appends the break (Rest 0). A 0s break means no break.
+  `withPrepare` and `withSets` wrap a workout. `withSets` replaces a set's last interval with the break only if it's a Rest, and otherwise appends the break (Rest 0). A 0s break means no break. Dropping the workout's final Rest is `buildWorkout`'s job, not `withSets`', so the building blocks (and `TABATA`) keep their simple meaning.
 - **Sets are derived, not stored:** the workout stays a flat list of intervals. `getSet` counts the `setRest` intervals before an index. `getRound` counts Work within the set's bounds. A break belongs to the set it ends. `getTimerState` and persistence know nothing about sets.
 - **Chip text for TalkBack:** each chip renders its visible text ("Set 1/2") with `aria-hidden` and a `.visually-hidden` "Set 1 of 2", because TalkBack doesn't reliably read `aria-label` on a plain span.
-- **Persistence stores timestamps, not the displayed time**, so time that passes while the app is closed is counted for free. Saved state is keyed by workout name, so **a workout's name must change whenever its shape changes**. Otherwise a timer saved by the old shape reopens at the wrong position. `buildWorkout` does this by encoding every setting in the name, and a test proves a timer saved under other settings is ignored. `src/test/setup.ts` clears `localStorage` after every test so a running workout can't leak into the next test.
+- **Persistence stores timestamps, not the displayed time**, so time that passes while the app is closed is counted for free. Saved state is keyed by workout name, so **a workout's name must change whenever its shape changes**. Otherwise a timer saved by the old shape reopens at the wrong position. `buildWorkout` does this by encoding every setting in the name, and a test proves a timer saved under other settings is ignored. A change to how the same settings are built needs a change to the name format too: the `· v2` marker was added when the final Rest was removed, with a test that a timer saved under the old name is ignored. `src/test/setup.ts` clears `localStorage` after every test so a running workout can't leak into the next test.
 - **Settings build an ordinary workout:** `buildWorkout(settings)` returns the same flat list of intervals as before. The timer, cues, counters, persistence and screens know nothing about settings.
 - **Android back uses one history entry:** the timer pushes a history entry when it opens, so back fires `popstate` there instead of leaving the app.
   - While running or paused, it opens the sheet and pushes the entry again. While a sheet is open, it dismisses the sheet and pushes the entry again. When idle or Done, it goes to the form.
@@ -150,6 +150,7 @@ Prerequisite: Android Studio installed at its default path (`C:\Program Files\An
 - **Silent after reopening:** Android allows sound and vibration only after a tap, so cues stay silent until the user taps a control (e.g. Pause, then Resume).
 - **The Reset and back sheets aren't saved:** if the app is closed while either is open, it reopens paused, without the sheet.
 - **APK builds are tied to this PC:** `build:android` uses `cmd` syntax, `gradlew.bat` and Android Studio's default path, so it only runs on Windows. Debug APKs are signed with this PC's debug key, so an APK built on another PC won't install over the old one until it's uninstalled, which deletes saved settings.
+- **An update that changes the workout's shape drops a workout in progress:** its saved timer is keyed by the old name, so the app opens a fresh workout instead of resuming (accepted when the final Rest was removed).
 - **The APK and the PWA don't share settings or a running workout:** each has its own `localStorage`.
 - **On Android 7, the APK's icon has no white background,** because Android 7 doesn't support adaptive icons.
 - **The status bar doesn't change colour on the Prepare or rest-between-sets screens:** it follows the page's fixed `theme-color`.
