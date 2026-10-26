@@ -12,6 +12,7 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "build:android": "tsc -b && vite build --mode android && cap sync android && cd android && set \"JAVA_HOME=C:\\Program Files\\Android\\Android Studio\\jbr\" && .\\gradlew.bat assembleDebug",
+    "build:android:linux": "tsc -b && vite build --mode android && cap sync android && cd android && ANDROID_HOME=\"${ANDROID_HOME:-$HOME/Android/Sdk}\" JAVA_HOME=\"${ANDROID_JDK:-$HOME/.jdks/jdk-21.0.13+9}\" sh ./gradlew assembleDebug",
     "icons:android": "node scripts/android-icon.mjs && capacitor-assets generate --android --assetPath node_modules/.tmp/android-icon --iconBackgroundColor #ffffff --iconBackgroundColorDark #ffffff --splashBackgroundColor #16171d --splashBackgroundColorDark #16171d"
   },
   "dependencies": {

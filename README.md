@@ -20,11 +20,14 @@ npm run preview    # serve dist/ to test install and offline use
 
 ## Build the Android APK
 
-Needs Android Studio, at its default install path, with the Android SDK. The build script runs on Windows.
+Needs the Android SDK and a full JDK 21.
 
 ```sh
-npm run build:android
+npm run build:android        # Windows: Android Studio at its default path, using its bundled Java
+npm run build:android:linux  # Linux: SDK in ~/Android/Sdk, JDK in ~/.jdks/jdk-21.0.13+9
 ```
+
+On Linux, set `ANDROID_HOME` or `ANDROID_JDK` to use a different SDK or JDK.
 
 This writes the debug APK to `android/app/build/outputs/apk/debug/app-debug.apk`. To install it, use `adb install -r <apk>` with USB debugging on, or copy the file to the phone and open it.
 

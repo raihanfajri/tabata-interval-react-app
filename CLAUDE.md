@@ -37,6 +37,7 @@ The Android APK (Capacitor 8) is configured in `capacitor.config.ts` ("Interval 
 - `npm run lint` — oxlint (config in `.oxlintrc.json`)
 - `npm run preview` — serve the built `dist/`
 - `npm run build:android` — type-check, build `dist-android/`, `cap sync android`, then Gradle `assembleDebug` to `android/app/build/outputs/apk/debug/app-debug.apk` (Windows only; uses Android Studio's bundled Java)
+- `npm run build:android:linux` — the same on Linux, with `sh ./gradlew`. Defaults: SDK in `~/Android/Sdk` (override with `ANDROID_HOME`) and the JDK in `~/.jdks/jdk-21.0.13+9` (override with `ANDROID_JDK`)
 - `npm run icons:android` — regenerate the APK's launcher icon and splash from `public/favicon.svg`
 
 - `npm test` runs Vitest in watch mode, and `npm run test:run` runs it once. `npm run test:coverage` adds coverage.

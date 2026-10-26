@@ -3,7 +3,7 @@
 # through sh (Git Bash) or cmd.
 
 .DEFAULT_GOAL := help
-.PHONY: help install dev build preview lint test test-watch coverage check android icons-android clean
+.PHONY: help install dev build preview lint test test-watch coverage check android android-linux icons-android clean
 
 help:
 	@echo "make install        Install dependencies (npm ci)"
@@ -16,6 +16,7 @@ help:
 	@echo "make coverage       Run the tests once with coverage"
 	@echo "make check          Lint, test, then build (what to run before a commit)"
 	@echo "make android        Build the debug APK (Windows only)"
+	@echo "make android-linux  Build the debug APK on Linux"
 	@echo "make icons-android  Regenerate the APK icon and splash from public/favicon.svg"
 	@echo "make clean          Remove dist/ and dist-android/"
 
@@ -47,6 +48,9 @@ check: lint test build
 
 android:
 	npm run build:android
+
+android-linux:
+	npm run build:android:linux
 
 icons-android:
 	npm run icons:android
