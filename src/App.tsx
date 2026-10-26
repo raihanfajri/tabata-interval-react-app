@@ -33,6 +33,8 @@ const pushScreenEntry = () => {
 function App() {
   const [settings, setSettings] = useState(loadSettings)
   const [name, setName] = useState('')
+  // The saved workout the form is editing, if any; see SettingsScreen.
+  const [savedName, setSavedName] = useState('')
   const [savedWorkouts, setSavedWorkouts] = useState(loadSavedWorkouts)
   // A workout still in progress (saved before the app was closed) continues on
   // the timer; otherwise the app opens on the saved workouts.
@@ -52,6 +54,7 @@ function App() {
   const openForm = (next: TimerSettings, nextName: string) => {
     setSettings(next)
     setName(nextName)
+    setSavedName(nextName)
     setFormKey((k) => k + 1)
     pushScreenEntry()
     setScreen('form')
@@ -95,9 +98,10 @@ function App() {
     setSavedWorkouts(next)
   }
 
-  const save = (savedName: string, next: TimerSettings) => {
-    updateSaved(addSavedWorkout(savedWorkouts, savedName, next))
-    setName(savedName)
+  const save = (savedAs: string, next: TimerSettings) => {
+    updateSaved(addSavedWorkout(savedWorkouts, savedAs, next))
+    setName(savedAs)
+    setSavedName(savedAs)
   }
 
   const exit = useCallback(() => {
@@ -117,6 +121,8 @@ function App() {
         key={formKey}
         initial={settings}
         initialName={name}
+        workouts={savedWorkouts}
+        savedName={savedName}
         onStart={start}
         onSave={save}
         onBack={backToHome}

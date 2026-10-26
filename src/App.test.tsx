@@ -147,6 +147,46 @@ describe('Saved workouts', () => {
     expect(screen.getByRole('listitem')).toHaveTextContent('tabataWork 0:25')
   })
 
+  it('renaming a workout to another saved workout\'s name asks first, and Replace overwrites that one', async () => {
+    const app = await openForm()
+    await saveAs(app, 'Hard', '45')
+    await backToHome(app)
+    await app.user.click(screen.getByRole('button', { name: 'New workout' }))
+    await saveAs(app, 'Easy', '15')
+    await backToHome(app)
+    await app.user.click(screen.getByRole('button', { name: /^Easy/ }))
+    await app.user.clear(nameField())
+    await app.user.type(nameField(), 'Hard')
+
+    await app.user.click(screen.getByRole('button', { name: 'Save' }))
+    await app.user.click(
+      within(screen.getByRole('alertdialog', { name: 'Replace “Hard”?' })).getByRole('button', { name: 'Replace' }),
+    )
+    await backToHome(app)
+
+    expect(screen.getAllByRole('listitem').map((i) => i.textContent)).toEqual([
+      expect.stringMatching(/^HardWork 0:15/),
+      expect.stringMatching(/^EasyWork 0:15/),
+    ])
+  })
+
+  it("Android back on the replace sheet closes it and stays on the form", async () => {
+    const app = await openForm()
+    await saveAs(app, 'Hard', '45')
+    await backToHome(app)
+    await app.user.click(screen.getByRole('button', { name: 'New workout' }))
+    await app.user.type(nameField(), 'Hard')
+    await app.user.click(screen.getByRole('button', { name: 'Save' }))
+
+    // In a browser, back pops the sheet's entry onto the form's.
+    act(() => {
+      window.dispatchEvent(new PopStateEvent('popstate', { state: { intervalScreen: true } }))
+    })
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'New Workout' })).toBeInTheDocument()
+  })
+
   it('a deleted workout is gone from the list, and stays gone after a relaunch', async () => {
     const app = await openForm()
     await saveAs(app, 'Easy', '15')

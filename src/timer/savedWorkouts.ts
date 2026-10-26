@@ -11,7 +11,7 @@ export interface SavedWorkout {
 export const NAME_MAX_LENGTH = 40
 
 // Names match ignoring case and surrounding spaces, so "Tabata " replaces "tabata".
-const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+export const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
 
 export const findSavedWorkout = (list: SavedWorkout[], name: string) =>
   list.find((w) => sameName(w.name, name))

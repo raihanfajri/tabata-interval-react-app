@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useEffectEvent, useId, useState, type FormEvent } from 'react'
 import { formatTime } from './intervals.ts'
-import { NAME_MAX_LENGTH } from './savedWorkouts.ts'
+import { findSavedWorkout, NAME_MAX_LENGTH, sameName, type SavedWorkout } from './savedWorkouts.ts'
 import {
   FIELDS,
   SETTING_KEYS,
@@ -12,11 +12,17 @@ import {
   type TimerSettings,
 } from './settings.ts'
 import './SettingsScreen.css'
+import './sheet.css'
 
 interface Props {
   initial: TimerSettings
   // The workout's name, if it has one (it was chosen from or saved to the list).
   initialName?: string
+  // The saved workouts, to ask before replacing one under the same name.
+  workouts: SavedWorkout[]
+  // The saved workout this form is editing (opened from the list, or saved
+  // from this form): saving under its own name updates it without asking.
+  savedName?: string
   onStart: (settings: TimerSettings, name: string) => void
   // Save these settings under this name (trimmed, never blank).
   onSave: (name: string, settings: TimerSettings) => void
@@ -30,12 +36,16 @@ const toSettings = (form: SettingsForm): TimerSettings =>
 // The "New Workout" form: how long each screen lasts, and how many sets and
 // cycles. Start is the big bottom button, in thumb reach. A name is only
 // needed to save the workout to the list.
-function SettingsScreen({ initial, initialName = '', onStart, onSave, onBack }: Props) {
+function SettingsScreen({ initial, initialName = '', workouts, savedName = '', onStart, onSave, onBack }: Props) {
   const [form, setForm] = useState(() => toForm(initial))
   const [name, setName] = useState(initialName)
   const [nameError, setNameError] = useState(false)
   // The "Saved “Tabata”" confirmation, cleared by the next edit.
   const [savedAs, setSavedAs] = useState<string | null>(null)
+  const [ownName, setOwnName] = useState(savedName)
+  // The other saved workout a Save would replace, while its sheet is open.
+  const [replacing, setReplacing] = useState<string | null>(null)
+  const dialogTitleId = useId()
   const errors = validateSettings(form)
   const valid = Object.keys(errors).length === 0
 
@@ -52,16 +62,47 @@ function SettingsScreen({ initial, initialName = '', onStart, onSave, onBack }: 
     setSavedAs(null)
   }
 
+  const commitSave = (trimmed: string) => {
+    onSave(trimmed, toSettings(form))
+    setName(trimmed)
+    setSavedAs(trimmed)
+    setOwnName(trimmed)
+  }
+
   const save = () => {
     const trimmed = name.trim()
     if (trimmed === '') {
       setNameError(true)
       return
     }
-    onSave(trimmed, toSettings(form))
-    setName(trimmed)
-    setSavedAs(trimmed)
+    const taken = findSavedWorkout(workouts, trimmed)
+    if (taken && !sameName(taken.name, ownName)) {
+      // Like the other sheets, it adds a history entry so Android back dismisses it.
+      window.history.pushState({ replaceSheet: true }, '')
+      setReplacing(taken.name)
+    } else {
+      commitSave(trimmed)
+    }
   }
+
+  // Closing by a tap drops the entry pushed on open.
+  const closeSheet = () => {
+    window.history.back()
+    setReplacing(null)
+  }
+
+  const confirmReplace = () => {
+    commitSave(name.trim())
+    closeSheet()
+  }
+
+  const onBackWhileAsking = useEffectEvent(() => setReplacing(null))
+  useEffect(() => {
+    if (replacing === null) return
+    const handle = () => onBackWhileAsking()
+    window.addEventListener('popstate', handle)
+    return () => window.removeEventListener('popstate', handle)
+  }, [replacing])
 
   // − / + move by the field's step and stop at its limits. From an invalid
   // value they start over from the minimum.
@@ -78,99 +119,119 @@ function SettingsScreen({ initial, initialName = '', onStart, onSave, onBack }: 
   }
 
   return (
-    <main className="settings">
-      {/* Material 3 small top app bar: up arrow, then the title. */}
-      <header className="settings__bar">
-        <button type="button" className="settings__back" aria-label="Back" onClick={onBack}>
-          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-            <path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
-          </svg>
-        </button>
-        <h1 className="settings__title">New Workout</h1>
-      </header>
-      <form className="settings__form" onSubmit={submit} noValidate>
-        <div className="field">
-          <label className="field__label" htmlFor="setting-name">
-            Name
-          </label>
-          <div className="field__name">
-            <input
-              id="setting-name"
-              className="field__input field__input--text"
-              value={name}
-              maxLength={NAME_MAX_LENGTH}
-              autoComplete="off"
-              enterKeyHint="done"
-              placeholder="e.g. Tabata"
-              onChange={(e) => changeName(e.target.value)}
-              aria-invalid={nameError ? true : undefined}
-              aria-describedby={nameError ? 'setting-name-error' : undefined}
-            />
-            {/* Saving needs valid settings, like Start. */}
-            <button type="button" className="field__save" onClick={save} disabled={!valid}>
-              Save
+    <>
+      <main className="settings" inert={replacing !== null}>
+        {/* Material 3 small top app bar: up arrow, then the title. */}
+        <header className="settings__bar">
+          <button type="button" className="settings__back" aria-label="Back" onClick={onBack}>
+            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+              <path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
+            </svg>
+          </button>
+          <h1 className="settings__title">New Workout</h1>
+        </header>
+        <form className="settings__form" onSubmit={submit} noValidate>
+          <div className="field">
+            <label className="field__label" htmlFor="setting-name">
+              Name
+            </label>
+            <div className="field__name">
+              <input
+                id="setting-name"
+                className="field__input field__input--text"
+                value={name}
+                maxLength={NAME_MAX_LENGTH}
+                autoComplete="off"
+                enterKeyHint="done"
+                placeholder="e.g. Tabata"
+                onChange={(e) => changeName(e.target.value)}
+                aria-invalid={nameError ? true : undefined}
+                aria-describedby={nameError ? 'setting-name-error' : undefined}
+              />
+              {/* Saving needs valid settings, like Start. */}
+              <button type="button" className="field__save" onClick={save} disabled={!valid}>
+                Save
+              </button>
+            </div>
+            {nameError && (
+              <p id="setting-name-error" className="field__error" role="alert">
+                Enter a name to save this workout.
+              </p>
+            )}
+            <p className="field__saved" role="status">
+              {savedAs && `Saved “${savedAs}”`}
+            </p>
+          </div>
+          {SETTING_KEYS.map((key) => {
+            const { label, seconds } = FIELDS[key]
+            const id = `setting-${key}`
+            const error = errors[key]
+            return (
+              <div className="field" key={key}>
+                <label className="field__label" htmlFor={id}>
+                  {label}
+                  {seconds && ' (seconds)'}
+                </label>
+                <div className="field__stepper">
+                  <button
+                    type="button"
+                    className="field__step"
+                    aria-label={`Decrease ${label}`}
+                    onClick={() => stepField(key, -1)}
+                  >
+                    −
+                  </button>
+                  <input
+                    id={id}
+                    className="field__input"
+                    inputMode="numeric"
+                    value={form[key]}
+                    onChange={(e) => setField(key, e.target.value)}
+                    aria-invalid={error ? true : undefined}
+                    aria-describedby={error ? `${id}-error` : undefined}
+                  />
+                  <button
+                    type="button"
+                    className="field__step"
+                    aria-label={`Increase ${label}`}
+                    onClick={() => stepField(key, 1)}
+                  >
+                    +
+                  </button>
+                </div>
+                {error && (
+                  <p id={`${id}-error`} className="field__error" role="alert">
+                    {error}
+                  </p>
+                )}
+              </div>
+            )
+          })}
+          <p className="settings__total">Total {total === null ? '–' : formatTime(total)}</p>
+          <button type="submit" className="settings__start" disabled={!valid}>
+            Start
+          </button>
+        </form>
+      </main>
+
+      {replacing !== null && (
+        <div className="scrim">
+          <div className="sheet" role="alertdialog" aria-modal="true" aria-labelledby={dialogTitleId}>
+            <h2 id={dialogTitleId} className="sheet__title">
+              Replace “{replacing}”?
+            </h2>
+            <p className="sheet__body">A saved workout already has this name. Its settings will be replaced with these.</p>
+            <button type="button" className="sheet__danger" onClick={confirmReplace}>
+              Replace
+            </button>
+            {/* Last = nearest the thumb, so the safe choice is the easiest one. */}
+            <button type="button" className="sheet__cancel" onClick={closeSheet} autoFocus>
+              Cancel
             </button>
           </div>
-          {nameError && (
-            <p id="setting-name-error" className="field__error" role="alert">
-              Enter a name to save this workout.
-            </p>
-          )}
-          <p className="field__saved" role="status">
-            {savedAs && `Saved “${savedAs}”`}
-          </p>
         </div>
-        {SETTING_KEYS.map((key) => {
-          const { label, seconds } = FIELDS[key]
-          const id = `setting-${key}`
-          const error = errors[key]
-          return (
-            <div className="field" key={key}>
-              <label className="field__label" htmlFor={id}>
-                {label}
-                {seconds && ' (seconds)'}
-              </label>
-              <div className="field__stepper">
-                <button
-                  type="button"
-                  className="field__step"
-                  aria-label={`Decrease ${label}`}
-                  onClick={() => stepField(key, -1)}
-                >
-                  −
-                </button>
-                <input
-                  id={id}
-                  className="field__input"
-                  inputMode="numeric"
-                  value={form[key]}
-                  onChange={(e) => setField(key, e.target.value)}
-                  aria-invalid={error ? true : undefined}
-                  aria-describedby={error ? `${id}-error` : undefined}
-                />
-                <button
-                  type="button"
-                  className="field__step"
-                  aria-label={`Increase ${label}`}
-                  onClick={() => stepField(key, 1)}
-                >
-                  +
-                </button>
-              </div>
-              {error && (
-                <p id={`${id}-error`} className="field__error" role="alert">
-                  {error}
-                </p>
-              )}
-            </div>
-          )
-        })}
-        <p className="settings__total">Total {total === null ? '–' : formatTime(total)}</p>
-        <button type="submit" className="settings__start" disabled={!valid}>
-          Start
-        </button>
-      </form>
-    </main>
+      )}
+    </>
   )
 }
 

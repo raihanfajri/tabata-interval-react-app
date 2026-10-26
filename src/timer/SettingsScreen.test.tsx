@@ -1,10 +1,16 @@
-import { screen } from '@testing-library/react'
+import { act, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import { getMockSavedWorkout } from '../test/factories.ts'
 import { renderWithProviders } from '../test/render.tsx'
 import SettingsScreen from './SettingsScreen.tsx'
+import type { SavedWorkout } from './savedWorkouts.ts'
 import { DEFAULT_SETTINGS, type TimerSettings } from './settings.ts'
 
-const renderForm = (initial: Partial<TimerSettings> = {}, initialName?: string) => {
+const renderForm = (
+  initial: Partial<TimerSettings> = {},
+  initialName?: string,
+  { workouts = [], savedName }: { workouts?: SavedWorkout[]; savedName?: string } = {},
+) => {
   const onStart = vi.fn()
   const onSave = vi.fn()
   const onBack = vi.fn()
@@ -12,6 +18,8 @@ const renderForm = (initial: Partial<TimerSettings> = {}, initialName?: string) 
     <SettingsScreen
       initial={{ ...DEFAULT_SETTINGS, ...initial }}
       initialName={initialName}
+      workouts={workouts}
+      savedName={savedName}
       onStart={onStart}
       onSave={onSave}
       onBack={onBack}
@@ -135,6 +143,88 @@ describe('SettingsScreen', () => {
       renderForm()
 
       expect(field('Name')).toHaveAttribute('maxLength', '40')
+    })
+
+    describe('when the name is taken by another saved workout', () => {
+      const tabata = getMockSavedWorkout({ name: 'Tabata', settings: { ...DEFAULT_SETTINGS, workSec: 45 } })
+      const replaceSheet = () => screen.getByRole('alertdialog', { name: 'Replace “Tabata”?' })
+
+      const saveAsTaken = async () => {
+        const view = renderForm({}, undefined, { workouts: [tabata] })
+        await view.user.type(field('Name'), 'tabata ')
+        await view.user.click(screen.getByRole('button', { name: 'Save' }))
+        return view
+      }
+
+      it('Save asks "Replace “Tabata”?" first, with Cancel focused, and saves nothing yet', async () => {
+        const { onSave } = await saveAsTaken()
+
+        expect(within(replaceSheet()).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+        expect(onSave).not.toHaveBeenCalled()
+      })
+
+      it('Replace saves under the typed name and confirms it', async () => {
+        const { user, onSave } = await saveAsTaken()
+
+        await user.click(within(replaceSheet()).getByRole('button', { name: 'Replace' }))
+
+        expect(onSave).toHaveBeenCalledWith('tabata', DEFAULT_SETTINGS)
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+        expect(screen.getByRole('status')).toHaveTextContent('Saved “tabata”')
+      })
+
+      it('Cancel closes the sheet, saves nothing and keeps the form as it was', async () => {
+        const { user, onSave } = await saveAsTaken()
+
+        await user.click(within(replaceSheet()).getByRole('button', { name: 'Cancel' }))
+
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+        expect(onSave).not.toHaveBeenCalled()
+        expect(field('Name')).toHaveValue('tabata ')
+      })
+
+      it('Android back dismisses the sheet like Cancel', async () => {
+        const { onSave } = await saveAsTaken()
+
+        act(() => {
+          window.dispatchEvent(new PopStateEvent('popstate'))
+        })
+
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+        expect(onSave).not.toHaveBeenCalled()
+      })
+
+      it('after replacing it once, saving again under that name does not ask', async () => {
+        const { user, onSave } = await saveAsTaken()
+        await user.click(within(replaceSheet()).getByRole('button', { name: 'Replace' }))
+
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+        expect(onSave).toHaveBeenCalledTimes(2)
+      })
+    })
+
+    it('saving the workout being edited under its own name (any case) updates it without asking', async () => {
+      const tabata = getMockSavedWorkout({ name: 'Tabata' })
+      const { user, onSave } = renderForm({}, 'Tabata', { workouts: [tabata], savedName: 'Tabata' })
+      await user.clear(field('Name'))
+      await user.type(field('Name'), 'TABATA')
+
+      await user.click(screen.getByRole('button', { name: 'Save' }))
+
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      expect(onSave).toHaveBeenCalledWith('TABATA', DEFAULT_SETTINGS)
+    })
+
+    it('a name no saved workout has saves without asking', async () => {
+      const { user, onSave } = renderForm({}, undefined, { workouts: [getMockSavedWorkout({ name: 'Tabata' })] })
+      await user.type(field('Name'), 'Hard')
+
+      await user.click(screen.getByRole('button', { name: 'Save' }))
+
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      expect(onSave).toHaveBeenCalled()
     })
 
     it('the back arrow calls onBack', async () => {
