@@ -5,6 +5,7 @@ import { useCountdownCues } from './useCountdownCues.ts'
 import { useIntervalTimer } from './useIntervalTimer.ts'
 import { useWakeLock } from './useWakeLock.ts'
 import './IntervalTimerScreen.css'
+import './sheet.css'
 
 interface Props {
   workout: Workout

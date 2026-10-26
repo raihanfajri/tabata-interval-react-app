@@ -4,12 +4,20 @@ import { renderWithProviders } from '../test/render.tsx'
 import SettingsScreen from './SettingsScreen.tsx'
 import { DEFAULT_SETTINGS, type TimerSettings } from './settings.ts'
 
-const renderForm = (initial: Partial<TimerSettings> = {}) => {
+const renderForm = (initial: Partial<TimerSettings> = {}, initialName?: string) => {
   const onStart = vi.fn()
+  const onSave = vi.fn()
+  const onBack = vi.fn()
   const view = renderWithProviders(
-    <SettingsScreen initial={{ ...DEFAULT_SETTINGS, ...initial }} onStart={onStart} />,
+    <SettingsScreen
+      initial={{ ...DEFAULT_SETTINGS, ...initial }}
+      initialName={initialName}
+      onStart={onStart}
+      onSave={onSave}
+      onBack={onBack}
+    />,
   )
-  return { ...view, onStart }
+  return { ...view, onStart, onSave, onBack }
 }
 
 const field = (name: string) => screen.getByRole('textbox', { name })
@@ -67,7 +75,74 @@ describe('SettingsScreen', () => {
 
       await user.click(screen.getByRole('button', { name: 'Start' }))
 
-      expect(onStart).toHaveBeenCalledWith(DEFAULT_SETTINGS)
+      expect(onStart).toHaveBeenCalledWith(DEFAULT_SETTINGS, '')
+    })
+  })
+
+  describe('naming and saving', () => {
+    it('Save passes the trimmed name and the parsed settings to onSave and confirms "Saved “Tabata”"', async () => {
+      const { user, onSave } = renderForm()
+
+      await user.type(field('Name'), '  Tabata ')
+      await user.click(screen.getByRole('button', { name: 'Increase Work' }))
+      await user.click(screen.getByRole('button', { name: 'Save' }))
+
+      expect(onSave).toHaveBeenCalledWith('Tabata', { ...DEFAULT_SETTINGS, workSec: 25 })
+      expect(screen.getByRole('status')).toHaveTextContent('Saved “Tabata”')
+      expect(field('Name')).toHaveValue('Tabata')
+    })
+
+    it('the confirmation clears as soon as a value changes', async () => {
+      const { user } = renderForm({}, 'Tabata')
+      await user.click(screen.getByRole('button', { name: 'Save' }))
+
+      await user.click(screen.getByRole('button', { name: 'Increase Sets' }))
+
+      expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    })
+
+    it('Save with a blank name shows "Enter a name to save this workout." on the Name field and saves nothing', async () => {
+      const { user, onSave } = renderForm()
+
+      await user.type(field('Name'), '   ')
+      await user.click(screen.getByRole('button', { name: 'Save' }))
+
+      expect(onSave).not.toHaveBeenCalled()
+      expect(field('Name')).toHaveAccessibleDescription('Enter a name to save this workout.')
+
+      await user.type(field('Name'), 'x')
+      expect(field('Name')).not.toHaveAccessibleDescription()
+    })
+
+    it('Save is disabled while a setting is invalid', async () => {
+      const { user } = renderForm({}, 'Tabata')
+
+      await user.clear(field('Work (seconds)'))
+
+      expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
+    })
+
+    it('shows the initial name, and Start passes it along with the settings', async () => {
+      const { user, onStart } = renderForm({}, 'Tabata')
+
+      expect(field('Name')).toHaveValue('Tabata')
+      await user.click(screen.getByRole('button', { name: 'Start' }))
+
+      expect(onStart).toHaveBeenCalledWith(DEFAULT_SETTINGS, 'Tabata')
+    })
+
+    it('limits the name to 40 characters', () => {
+      renderForm()
+
+      expect(field('Name')).toHaveAttribute('maxLength', '40')
+    })
+
+    it('the back arrow calls onBack', async () => {
+      const { user, onBack } = renderForm()
+
+      await user.click(screen.getByRole('button', { name: 'Back' }))
+
+      expect(onBack).toHaveBeenCalled()
     })
   })
 

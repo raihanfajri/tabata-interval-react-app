@@ -19,7 +19,7 @@ Decided 2026-10-14 (plans `interval-timer-screen`, `prepare-timer`, `add-sets-an
   - Rest between sets 0 means no break, so every set but the last keeps its last Rest and sets run back to back.
 
   Work is at least 1s. The workout's name encodes every setting, e.g. "Custom 8/20/10/30 · 2×8 · v2".
-- **New Workout form:** the screen the app opens on, headed "New Workout".
+- **New Workout form:** headed "New Workout", opened from Saved Workouts.
 
   | Field | Limits | − / + step |
   |---|---|---|
@@ -33,13 +33,30 @@ Decided 2026-10-14 (plans `interval-timer-screen`, `prepare-timer`, `add-sets-an
   - **Editing:** − / + stop at the limits, and from an invalid value they start over at the minimum. Tapping a value opens the numeric keyboard for exact entry.
   - **Errors:** an empty, non-whole or out-of-range value shows an error under its field (announced, and tied to the field by `aria-describedby`). The large bottom Start button is disabled until it's fixed.
   - **Total:** a "Total 8:18" line updates as values change, and shows "Total –" while any value is invalid.
-  - **Remembered:** Start saves the settings (`localStorage`), and the next launch shows them. Corrupt data or blocked storage falls back to the defaults without errors.
-- **Navigation and Android back:** Start on the form opens the timer and starts the workout at once. There's no in-app back or Settings button. Android back is the way to the form.
-  - **Running or paused:** back pauses the workout and opens a "Reset workout and go back to settings?" sheet. Cancel returns to the previous state, like the Reset sheet. Reset clears the workout and shows the form with the same settings.
-  - **Back while a sheet is open:** dismisses it like Cancel.
-  - **Idle or Done timer:** back goes straight to the form.
-  - **On the form:** back leaves the app.
-  - **Reopening:** mid-workout the app opens on the timer and continues that session. Otherwise it opens on the form.
+- **Saved workouts (the home screen):** decided 2026-10-26. The app opens on a "Saved Workouts" screen, unless a workout is in progress.
+  - **The list:** newest first. Each row shows the name and a summary ("Work 0:20 · Rest 0:10 · 2 × 8 · 8:18"). With nothing saved it says "No saved workouts yet. Tap + to create one."
+  - **+:** a 56dp floating button at the bottom right ("New workout" to TalkBack) opens the form with the default settings and no name.
+  - **Choosing:** tapping a row opens the form filled with that workout's name and settings, ready to review and Start. It doesn't start the workout on its own.
+  - **Naming and saving:** the form's first field is "Name" (up to 40 characters, optional). Save, at the end of that row, stores the current settings under the trimmed name and shows "Saved “Tabata”" until the next edit. A blank name shows "Enter a name to save this workout." Save is disabled while a setting is invalid, like Start. Saving under an existing name (ignoring case) replaces it.
+  - **Deleting:** each row's delete button asks "Delete “Tabata”?" in a bottom sheet first. Cancel is last and has focus.
+  - **Stored** as a list in `localStorage` (`interval-app:workouts`, `src/timer/savedWorkouts.ts`). A corrupt entry is dropped, and corrupt data or blocked storage gives an empty list. The name is only a label: the timer still keys its saved session by `buildWorkout`'s name. The last-used settings are still saved on Start, but only to reopen a workout in progress; + always starts from the defaults.
+- **Workout History:** decided 2026-10-26. A chart button at the bottom left of Saved Workouts (a lower-emphasis FAB, "Workout history" to TalkBack, mirroring +) opens a "Workout History" screen.
+  - **What counts:** a session's active time, pauses excluded. A finished workout counts at its full length. One reset part-way (top-bar Reset or the back sheet) counts for the time it ran. Sessions under a second aren't recorded. A session counts on the local day it started.
+  - **Time range:** segmented buttons, 7 days (default) / 30 days / 90 days / Custom. The presets end today. A line under them says which days are shown ("Tue, Oct 20 – Today"). The range scopes everything below it and isn't remembered.
+  - **Custom:** From and To date fields (Android's own date picker), first filled with the days already shown. To can't be after today. The range is 1 to 90 days, because a longer one would make one bar per day unreadable. A blank date, an end after today, a start after the end, or over 90 days shows an error under that field. Meanwhile the chart keeps showing the last valid range.
+  - **Stats:** Total (the headline number), Workouts, and Daily average (total ÷ days in the range, custom included). Times read "45s", "8m 18s", "1h 05m", rounded down.
+  - **Chart:** one bar per day for total workout time, in the accent colour, on clean minute gridlines. Days with no workout have no bar. At 7 days each bar has its weekday initial; at 30 and 90 only the first date and "Today" are labelled. With nothing in the range it says "No workouts in the last 7 days." (or "No workouts from 1 Oct to 15 Oct." for a custom range). A custom range of 7 days or less gets weekday initials; a longer one ending before today labels its last date instead of "Today".
+  - **Reading a day:** tap or drag across the chart, or focus it and use the arrow keys. The day under the finger is highlighted, and the line above the chart reads "8m 18s Mon, Oct 26 · 1 workout" (announced politely). Changing the range clears it.
+  - **Daily totals:** a collapsed table under the chart lists the days with workouts, newest first, so every number is reachable without the chart.
+  - **Stored** in `localStorage` (`interval-app:history`, `src/timer/history.ts`) as `{ startedAt, activeMs }` per session. Sessions over 400 days old are dropped when a new one is recorded. Corrupt entries are skipped; blocked storage shows no history.
+- **Navigation and Android back:** Saved Workouts → form → timer, and Saved Workouts → Workout History. Start on the form opens the timer and starts the workout at once. The timer has no in-app back or Settings button; the form and Workout History have a back arrow in their top bars.
+  - **Timer, running or paused:** back pauses the workout and opens a "Reset workout and go back to settings?" sheet. Cancel returns to the previous state, like the Reset sheet. Reset clears the workout and shows the form with the same settings.
+  - **Back while a sheet is open** (on the timer, or the delete sheet on Saved Workouts): dismisses it like Cancel.
+  - **Timer, idle or Done:** back goes straight to the form.
+  - **Form:** back (or the back arrow) returns to Saved Workouts, dropping unsaved edits.
+  - **Workout History:** back (or the back arrow) returns to Saved Workouts.
+  - **Saved Workouts:** back leaves the app.
+  - **Reopening:** mid-workout the app opens on the timer and continues that session, and back still goes timer → form → Saved Workouts. Otherwise it opens on Saved Workouts.
 - **Prepare screen:** Prepare (interval kind `prepare`) gets its own screen. Start on the form counts it down from its set length.
   - The whole screen is amber, edge to edge.
   - A large "PREPARE" heading and a seconds-only countdown (8, 7 … 1 by default, rounded up).
@@ -121,7 +138,10 @@ These are the non-obvious parts. The tests in `src/timer/*.test.ts(x)` pin each 
 - **Sets are derived, not stored:** the workout stays a flat list of intervals. `getSet` counts the `setRest` intervals before an index. `getRound` counts Work within the set's bounds. A break belongs to the set it ends. `getTimerState` and persistence know nothing about sets.
 - **Chip text for TalkBack:** each chip renders its visible text ("Set 1/2") with `aria-hidden` and a `.visually-hidden` "Set 1 of 2", because TalkBack doesn't reliably read `aria-label` on a plain span.
 - **Persistence stores timestamps, not the displayed time**, so time that passes while the app is closed is counted for free. Saved state is keyed by workout name, so **a workout's name must change whenever its shape changes**. Otherwise a timer saved by the old shape reopens at the wrong position. `buildWorkout` does this by encoding every setting in the name, and a test proves a timer saved under other settings is ignored. A change to how the same settings are built needs a change to the name format too: the `· v2` marker was added when the final Rest was removed, with a test that a timer saved under the old name is ignored. `src/test/setup.ts` clears `localStorage` after every test so a running workout can't leak into the next test.
+- **History is recorded by `useIntervalTimer`, keyed by `startedAt`:** an effect records a finished session at the workout's full length, and `reset()` records the elapsed time (pauses excluded) before clearing. `startedAt` is the session's id, so recording it again replaces it. That covers StrictMode's double effects and the Done shown once after reopening (a session that ended while the app was closed). Restart is a new `startedAt`, so a new session. A session in progress when the app is closed isn't recorded until it ends in the app.
+- **The chart is plain HTML, not a library:** each day is a flex slot (the hit area) with the bar centred in it, at most 24px wide, 4px rounded top, 2px apart (1px at 90 days). The pointer picks the slot under it by x position, so 90 thin bars don't need hitting exactly; `touch-action: pan-y` keeps vertical scrolling. Workout History reads the clock once when it opens.
 - **Settings build an ordinary workout:** `buildWorkout(settings)` returns the same flat list of intervals as before. The timer, cues, counters, persistence and screens know nothing about settings.
+- **One history entry for the form or Workout History, owned by `App`:** Saved Workouts is the bottom of the history. Opening the form or Workout History pushes one entry marked `{ intervalScreen: true }`, and the timer pushes its own entry on top, as before. `App` goes home only on a popstate that lands *below* the form's entry (`event.state` without the marker). That's what keeps the timer's own `history.back()` (after the back sheet's Reset) from also leaving the form. Reopening mid-workout pushes the form's entry before the timer mounts, so back still reaches the form and then home. The push is skipped when the entry is already there, which makes it safe under StrictMode. The delete sheet pushes its own entry while open, like the timer's sheets.
 - **Android back uses one history entry:** the timer pushes a history entry when it opens, so back fires `popstate` there instead of leaving the app.
   - While running or paused, it opens the sheet and pushes the entry again. While a sheet is open, it dismisses the sheet and pushes the entry again. When idle or Done, it goes to the form.
   - The sheet's Reset clears the saved session itself (the screen unmounts before its normal save would run), then calls `history.back()` to drop the entry.
@@ -133,12 +153,14 @@ These are the non-obvious parts. The tests in `src/timer/*.test.ts(x)` pin each 
   - `@capacitor/app` was rejected: with no JS listener it does nothing when there's no history, and a listener would add APK-only code to the web app.
   - Regenerating `android/` (`cap add android`) deletes this handler.
 - **`build:android` sets its own Java:** Capacitor 8 compiles for Java 21, and this PC's JDK 20 fails with "invalid source release: 21". The script sets `JAVA_HOME` to Android Studio's bundled Java for the Gradle step only, leaving the global Java alone.
+- **`build:android:linux` needs a full JDK, not the system Java:** Ubuntu's `openjdk-21` package here is a runtime without `javac`, and Gradle fails with "Toolchain installation '/usr/lib/jvm/java-21-openjdk-amd64' does not provide the required capabilities: [JAVA_COMPILER]". The script sets `JAVA_HOME` to the JDK in `~/.jdks` (where IntelliJ downloads JDKs) for the Gradle step only. It's a separate script rather than a cross-platform one, so the Windows script stays untouched.
 
 ## Building and installing the APK
 
-Prerequisite: Android Studio installed at its default path (`C:\Program Files\Android\Android Studio`), with the SDK in `%LOCALAPPDATA%\Android\Sdk`.
+Prerequisite on Windows: Android Studio installed at its default path (`C:\Program Files\Android\Android Studio`), with the SDK in `%LOCALAPPDATA%\Android\Sdk`. On Linux: the SDK (platform 36, build-tools 35+) in `~/Android/Sdk` and a full JDK 21 in `~/.jdks/jdk-21.0.13+9`, or set `ANDROID_HOME` / `ANDROID_JDK`.
 
-- `npm run build:android` type-checks, builds `dist-android/`, copies it into `android/` (`cap sync`) and builds `android/app/build/outputs/apk/debug/app-debug.apk`.
+- `npm run build:android` (Windows) or `npm run build:android:linux` (`make android-linux`) type-checks, builds `dist-android/`, copies it into `android/` (`cap sync`) and builds `android/app/build/outputs/apk/debug/app-debug.apk`.
+- On Linux, install with `~/Android/Sdk/platform-tools/adb install -r android/app/build/outputs/apk/debug/app-debug.apk`.
 - `npm run icons:android` regenerates the launcher icon and splash from `public/favicon.svg` (via `scripts/android-icon.mjs`). Run it after changing the icon.
 - To install over USB, turn on USB debugging on the phone, then run `"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" install -r android\app\build\outputs\apk\debug\app-debug.apk`. `-r` installs over the existing app and keeps its settings.
 - Without adb, copy the APK to the phone's Download folder (USB file transfer) and tap it in My Files. Allow "Install unknown apps" for My Files the first time.
@@ -149,7 +171,7 @@ Prerequisite: Android Studio installed at its default path (`C:\Program Files\An
 - **Nothing plays while the app is closed:** a closed web app can't run code. The Capacitor APK doesn't change this. Background cues would need a native foreground service plugin.
 - **Silent after reopening:** Android allows sound and vibration only after a tap, so cues stay silent until the user taps a control (e.g. Pause, then Resume).
 - **The Reset and back sheets aren't saved:** if the app is closed while either is open, it reopens paused, without the sheet.
-- **APK builds are tied to this PC:** `build:android` uses `cmd` syntax, `gradlew.bat` and Android Studio's default path, so it only runs on Windows. Debug APKs are signed with this PC's debug key, so an APK built on another PC won't install over the old one until it's uninstalled, which deletes saved settings.
+- **Each machine signs APKs with its own debug key:** an APK built on the Linux machine won't install over one built on the Windows PC (or the reverse) until the app is uninstalled, which deletes saved settings, saved workouts and history. To build on both, copy one machine's `~/.android/debug.keystore` (`%USERPROFILE%\.android\debug.keystore` on Windows) to the other. `build:android` only runs on Windows and `build:android:linux` only on Linux.
 - **An update that changes the workout's shape drops a workout in progress:** its saved timer is keyed by the old name, so the app opens a fresh workout instead of resuming (accepted when the final Rest was removed).
 - **The APK and the PWA don't share settings or a running workout:** each has its own `localStorage`.
 - **On Android 7, the APK's icon has no white background,** because Android 7 doesn't support adaptive icons.
@@ -157,7 +179,7 @@ Prerequisite: Android Studio installed at its default path (`C:\Program Files\An
 
 ## Follow-ups (not started)
 
-- Several named workouts or presets, and workout history. Only one set of settings is remembered.
+- Workout History: per-workout detail (which saved workout, finished or not), and ranges over 90 days (e.g. a year, as one bar per week).
 - A different time per round (e.g. a longer Work in round 3). Each screen type has one duration.
 - Changing settings during a workout. Reaching the form always resets it.
 - A mute or volume setting for the cues.
@@ -195,3 +217,9 @@ Opening the PC's LAN IP over HTTP can't install the app or register the service 
 - [ ] the amber Prepare screen fills edge to edge (behind the status bar, gesture bar and cutout), and its text and Pause button are readable in sunlight
 - [ ] note the status bar colour during Prepare
 - [ ] the 3-2-1 beeps and then the whistle at the end of Prepare read as "get ready… go"
+- [ ] long names are cut off with an ellipsis on Saved Workouts at 360dp, and the + button sits clear of the gesture bar
+- [ ] Android back (PWA and APK): timer → form → Saved Workouts → leaves the app, including after reopening mid-workout
+- [ ] the history and + buttons sit clear of the gesture bar and don't cover the last saved workout
+- [ ] dragging across the Workout History chart picks days smoothly at 90 days, and scrolling the page over the chart still works
+- [ ] a workout finished, and one reset part-way, both show on today's bar with the right time
+- [ ] the From/To fields open Android's date picker, which won't pick a day after today, and "✓ Custom" fits its segment at 360dp

@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useState } from 'react'
 import { getTimerState, type TimerState, type Workout } from './intervals.ts'
+import { recordSession } from './history.ts'
 import { clearTimer, loadTimer, saveTimer } from './persistence.ts'
 
 export type TimerStatus = 'idle' | 'running' | 'paused' | 'finished'
@@ -62,6 +63,14 @@ export function useIntervalTimer(workout: Workout, onTime?: (state: TimerState) 
     else saveTimer(workout, { startedAt, pausedAt, pausedTotalMs })
   }, [workout, finished, startedAt, pausedAt, pausedTotalMs])
 
+  // A finished session goes into the history at its full length. Recording is
+  // keyed by startedAt, so the effect running twice keeps one entry.
+  useEffect(() => {
+    if (!finished || startedAt === null) return
+    const totalMs = workout.intervals.reduce((ms, i) => ms + i.durationSec * 1000, 0)
+    recordSession({ startedAt, activeMs: totalMs })
+  }, [workout, finished, startedAt])
+
   // Background timers are throttled or frozen, so catch up on return.
   useEffect(() => {
     const onVisibilityChange = () => {
@@ -95,6 +104,10 @@ export function useIntervalTimer(workout: Workout, onTime?: (state: TimerState) 
   }
 
   const reset = () => {
+    // A session reset part-way through counts for the time it ran.
+    if (startedAt !== null && !finished) {
+      recordSession({ startedAt, activeMs: (pausedAt ?? Date.now()) - startedAt - pausedTotalMs })
+    }
     setStartedAt(null)
     setPausedAt(null)
     setPausedTotalMs(0)

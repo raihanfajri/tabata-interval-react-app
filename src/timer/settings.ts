@@ -42,6 +42,10 @@ export function buildWorkout(settings: TimerSettings): Workout {
   return prepareSec > 0 ? withPrepare(workout, prepareSec) : workout
 }
 
+// The workout's length, as the timer would run it.
+export const totalMs = (settings: TimerSettings) =>
+  buildWorkout(settings).intervals.reduce((ms, i) => ms + i.durationSec * 1000, 0)
+
 export type SettingKey = keyof TimerSettings
 
 // The form holds text while the user types; it's validated before use.
@@ -92,17 +96,20 @@ export function validateSettings(form: SettingsForm): Partial<Record<SettingKey,
 // failure (corrupt data, blocked storage) quietly falls back to the defaults.
 const SETTINGS_KEY = 'interval-app:settings'
 
+// Settings read back from storage, or null unless every field is a valid number.
+export function parseSettings(value: unknown): TimerSettings | null {
+  if (typeof value !== 'object' || value === null) return null
+  const values = value as Record<string, unknown>
+  if (!SETTING_KEYS.every((k) => typeof values[k] === 'number')) return null
+  const settings = Object.fromEntries(SETTING_KEYS.map((k) => [k, values[k]])) as unknown as TimerSettings
+  return Object.keys(validateSettings(toForm(settings))).length === 0 ? settings : null
+}
+
 export function loadSettings(): TimerSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
     if (raw === null) return DEFAULT_SETTINGS
-    const parsed: unknown = JSON.parse(raw)
-    if (typeof parsed !== 'object' || parsed === null) return DEFAULT_SETTINGS
-    const values = parsed as Record<string, unknown>
-    if (!SETTING_KEYS.every((k) => typeof values[k] === 'number')) return DEFAULT_SETTINGS
-    const settings = values as unknown as TimerSettings
-    const valid = Object.keys(validateSettings(toForm(settings))).length === 0
-    return valid ? settings : DEFAULT_SETTINGS
+    return parseSettings(JSON.parse(raw)) ?? DEFAULT_SETTINGS
   } catch {
     return DEFAULT_SETTINGS
   }

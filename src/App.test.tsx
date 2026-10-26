@@ -13,11 +13,36 @@ afterEach(() => {
 
 const advance = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms))
 
-describe('New Workout form', () => {
-  it('opens on the "New Workout" form with the default values and "Total 8:18" when nothing is saved or in progress', () => {
-    renderWithProviders(<App />)
+// Android back reaches the page as a popstate event.
+const pressBack = () =>
+  act(() => {
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  })
+
+const openApp = () => renderWithProviders(<App />, { advanceTimers: vi.advanceTimersByTime })
+
+// Opens the app on the saved workouts and taps + for a new workout.
+const openForm = async () => {
+  const app = openApp()
+  await app.user.click(screen.getByRole('button', { name: 'New workout' }))
+  return app
+}
+
+describe('Saved workouts home screen', () => {
+  it('opens on "Saved Workouts" with a + button when no workout is in progress', () => {
+    openApp()
+
+    expect(screen.getByRole('heading', { name: 'Saved Workouts' })).toBeInTheDocument()
+    expect(screen.getByText('No saved workouts yet. Tap + to create one.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'New workout' })).toBeInTheDocument()
+    expect(screen.queryByRole('timer')).not.toBeInTheDocument()
+  })
+
+  it('+ opens the "New Workout" form with the default values, no name and "Total 8:18"', async () => {
+    await openForm()
 
     expect(screen.getByRole('heading', { name: 'New Workout' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('')
     expect(screen.getByRole('textbox', { name: 'Prepare (seconds)' })).toHaveValue('8')
     expect(screen.getByRole('textbox', { name: 'Work (seconds)' })).toHaveValue('20')
     expect(screen.getByRole('textbox', { name: 'Rest (seconds)' })).toHaveValue('10')
@@ -25,11 +50,34 @@ describe('New Workout form', () => {
     expect(screen.getByRole('textbox', { name: 'Sets' })).toHaveValue('2')
     expect(screen.getByRole('textbox', { name: 'Cycles per set' })).toHaveValue('8')
     expect(screen.getByText('Total 8:18')).toBeInTheDocument()
-    expect(screen.queryByRole('timer')).not.toBeInTheDocument()
   })
 
+  it('+ starts from the defaults even after other settings were used', async () => {
+    const app = await openForm()
+    await app.user.clear(screen.getByRole('textbox', { name: 'Sets' }))
+    await app.user.type(screen.getByRole('textbox', { name: 'Sets' }), '3')
+    await app.user.click(screen.getByRole('button', { name: 'Back' }))
+
+    await app.user.click(screen.getByRole('button', { name: 'New workout' }))
+
+    expect(screen.getByRole('textbox', { name: 'Sets' })).toHaveValue('2')
+  })
+
+  it.each([
+    ['the back arrow', (app: ReturnType<typeof openApp>) => app.user.click(screen.getByRole('button', { name: 'Back' }))],
+    ['Android back', () => pressBack()],
+  ])('%s on the form returns to the saved workouts', async (_label, goBack) => {
+    const app = await openForm()
+
+    await goBack(app)
+
+    expect(screen.getByRole('heading', { name: 'Saved Workouts' })).toBeInTheDocument()
+  })
+})
+
+describe('New Workout form', () => {
   it('changing Work to 30s updates the total, and Start opens the timer whose Work screen shows 0:30 after Prepare', async () => {
-    const { user } = renderWithProviders(<App />, { advanceTimers: vi.advanceTimersByTime })
+    const { user } = await openForm()
     const work = screen.getByRole('textbox', { name: 'Work (seconds)' })
 
     await user.clear(work)
@@ -41,43 +89,157 @@ describe('New Workout form', () => {
     expect(screen.getByRole('heading', { name: 'Work' })).toBeInTheDocument()
     expect(screen.getByRole('timer')).toHaveTextContent('0:30')
   })
-
-  it('the next launch shows the settings last used', async () => {
-    const first = renderWithProviders(<App />, { advanceTimers: vi.advanceTimersByTime })
-    const sets = screen.getByRole('textbox', { name: 'Sets' })
-    await first.user.clear(sets)
-    await first.user.type(sets, '3')
-    await first.user.click(screen.getByRole('button', { name: 'Start' }))
-    first.unmount()
-    // No workout in progress (it would reopen on the timer); only the settings matter here.
-    Object.keys(localStorage)
-      .filter((k) => k.startsWith('interval-app:timer:'))
-      .forEach((k) => localStorage.removeItem(k))
-
-    renderWithProviders(<App />)
-
-    expect(screen.getByRole('textbox', { name: 'Sets' })).toHaveValue('3')
-  })
 })
 
-// Android back reaches the page as a popstate event.
-const pressBack = () =>
-  act(() => {
-    window.dispatchEvent(new PopStateEvent('popstate'))
+describe('Saved workouts', () => {
+  const nameField = () => screen.getByRole('textbox', { name: 'Name' })
+  const workField = () => screen.getByRole('textbox', { name: 'Work (seconds)' })
+
+  const saveAs = async (app: ReturnType<typeof openApp>, name: string, workSec: string) => {
+    await app.user.clear(nameField())
+    await app.user.type(nameField(), name)
+    await app.user.clear(workField())
+    await app.user.type(workField(), workSec)
+    await app.user.click(screen.getByRole('button', { name: 'Save' }))
+  }
+
+  const backToHome = (app: ReturnType<typeof openApp>) =>
+    app.user.click(screen.getByRole('button', { name: 'Back' }))
+
+  it('saved workouts appear on the home screen, newest first', async () => {
+    const app = await openForm()
+    await saveAs(app, 'Easy', '15')
+    await saveAs(app, 'Hard', '45')
+
+    await backToHome(app)
+
+    expect(screen.getAllByRole('listitem').map((i) => i.textContent)).toEqual([
+      expect.stringMatching(/^Hard/),
+      expect.stringMatching(/^Easy/),
+    ])
   })
 
-const openApp = () => renderWithProviders(<App />, { advanceTimers: vi.advanceTimersByTime })
+  it('choosing a saved workout fills the form with its name and settings, and Start runs it', async () => {
+    const app = await openForm()
+    await saveAs(app, 'Hard', '45')
+    await saveAs(app, 'Easy', '15')
+    await backToHome(app)
+
+    await app.user.click(screen.getByRole('button', { name: /^Hard/ }))
+
+    expect(screen.getByRole('heading', { name: 'New Workout' })).toBeInTheDocument()
+    expect(nameField()).toHaveValue('Hard')
+    expect(workField()).toHaveValue('45')
+
+    await app.user.click(screen.getByRole('button', { name: 'Start' }))
+    await advance(8_000)
+    expect(screen.getByRole('timer')).toHaveTextContent('0:45')
+  })
+
+  it('saving under an existing name replaces that workout instead of adding another', async () => {
+    const app = await openForm()
+    await saveAs(app, 'Tabata', '20')
+    await saveAs(app, 'tabata', '25')
+
+    await backToHome(app)
+
+    expect(screen.getAllByRole('listitem')).toHaveLength(1)
+    expect(screen.getByRole('listitem')).toHaveTextContent('tabataWork 0:25')
+  })
+
+  it('a deleted workout is gone from the list, and stays gone after a relaunch', async () => {
+    const app = await openForm()
+    await saveAs(app, 'Easy', '15')
+    await saveAs(app, 'Hard', '45')
+    await backToHome(app)
+
+    await app.user.click(screen.getByRole('button', { name: 'Delete Hard' }))
+    await app.user.click(
+      within(screen.getByRole('alertdialog', { name: 'Delete “Hard”?' })).getByRole('button', { name: 'Delete' }),
+    )
+
+    expect(screen.getAllByRole('listitem')).toHaveLength(1)
+    app.unmount()
+    openApp()
+    expect(screen.getAllByRole('listitem').map((i) => i.textContent)).toEqual([expect.stringMatching(/^Easy/)])
+  })
+})
 
 const startFromForm = async (app: ReturnType<typeof openApp>) => {
   await app.user.click(screen.getByRole('button', { name: 'Start' }))
 }
+
+describe('Workout history', () => {
+  const openHistory = async (app: ReturnType<typeof openApp>) => {
+    await app.user.click(screen.getByRole('button', { name: 'Workout history' }))
+  }
+  const total = () => screen.getByText('Total', { selector: 'dt' }).nextElementSibling
+
+  it('the chart button opens "Workout History", and back returns to the saved workouts', async () => {
+    const app = openApp()
+    await openHistory(app)
+    expect(screen.getByRole('heading', { name: 'Workout History' })).toBeInTheDocument()
+
+    await pressBack()
+
+    expect(screen.getByRole('heading', { name: 'Saved Workouts' })).toBeInTheDocument()
+  })
+
+  it('a finished workout counts at its full length', async () => {
+    const app = await openForm()
+    await app.user.click(screen.getByRole('button', { name: 'Start' }))
+    await advance(498_000)
+    expect(screen.getByRole('heading', { name: 'Done' })).toBeInTheDocument()
+    await pressBack() // Done → form
+    await pressBack() // form → home
+
+    await openHistory(app)
+
+    expect(total()).toHaveTextContent('8m 18s')
+    expect(screen.getByText('Workouts', { selector: 'dt' }).nextElementSibling).toHaveTextContent('1')
+  })
+
+  it('a workout reset part-way counts for the time it ran, without the paused time', async () => {
+    const app = await openForm()
+    await app.user.click(screen.getByRole('button', { name: 'Start' }))
+    await advance(60_000)
+    await pressBack() // pauses, opens the sheet
+    await advance(30_000) // paused: not counted
+    await app.user.click(
+      within(screen.getByRole('alertdialog', { name: 'Reset workout and go back to settings?' })).getByRole('button', {
+        name: 'Reset',
+      }),
+    )
+    await pressBack() // form → home
+
+    await openHistory(app)
+
+    expect(total()).toHaveTextContent('1m 00s')
+  })
+
+  it('a workout that finished while the app was closed counts once', async () => {
+    const app = await openForm()
+    await app.user.click(screen.getByRole('button', { name: 'Start' }))
+    await advance(10_000)
+    app.unmount()
+    vi.setSystemTime(Date.now() + 600_000)
+
+    const reopened = openApp() // shows Done once
+    expect(screen.getByRole('heading', { name: 'Done' })).toBeInTheDocument()
+    reopened.unmount()
+    const third = openApp()
+    await openHistory(third)
+
+    expect(total()).toHaveTextContent('8m 18s')
+  })
+})
 
 describe('Android back and reopening', () => {
   const exitSheet = () =>
     screen.getByRole('alertdialog', { name: 'Reset workout and go back to settings?' })
 
   it('back on the idle timer goes straight to the form', async () => {
-    const app = openApp()
+    const app = await openForm()
     await startFromForm(app)
     await app.user.click(screen.getByRole('button', { name: 'Reset' }))
     await app.user.click(
@@ -91,7 +253,7 @@ describe('Android back and reopening', () => {
   })
 
   it('back on the Done timer goes straight to the form', async () => {
-    const app = openApp()
+    const app = await openForm()
     await startFromForm(app)
     await advance(508_000)
     expect(screen.getByRole('heading', { name: 'Done' })).toBeInTheDocument()
@@ -102,7 +264,7 @@ describe('Android back and reopening', () => {
   })
 
   it('back while running pauses the countdown and shows "Reset workout and go back to settings?"', async () => {
-    const app = openApp()
+    const app = await openForm()
     await startFromForm(app)
     await advance(3_000) // Prepare 5
 
@@ -114,7 +276,7 @@ describe('Android back and reopening', () => {
   })
 
   it('in that sheet, Cancel continues the workout from where it was, without counting the sheet time', async () => {
-    const app = openApp()
+    const app = await openForm()
     await startFromForm(app)
     await advance(3_000) // Prepare 5
     await pressBack()
@@ -129,7 +291,7 @@ describe('Android back and reopening', () => {
   })
 
   it('back again while that sheet is open dismisses it like Cancel, and the workout continues', async () => {
-    const app = openApp()
+    const app = await openForm()
     await startFromForm(app)
     await advance(3_000) // Prepare 5
     await pressBack()
@@ -143,7 +305,7 @@ describe('Android back and reopening', () => {
   })
 
   it('in that sheet, Cancel while it was already paused keeps it paused', async () => {
-    const app = openApp()
+    const app = await openForm()
     await startFromForm(app)
     await advance(3_000)
     await app.user.click(screen.getByRole('button', { name: 'Pause' }))
@@ -157,7 +319,7 @@ describe('Android back and reopening', () => {
   })
 
   it('in that sheet, Reset clears the workout and shows the form with the same settings', async () => {
-    const app = openApp()
+    const app = await openForm()
     const work = screen.getByRole('textbox', { name: 'Work (seconds)' })
     await app.user.clear(work)
     await app.user.type(work, '45')
@@ -171,8 +333,23 @@ describe('Android back and reopening', () => {
     expect(screen.getByRole('textbox', { name: 'Work (seconds)' })).toHaveValue('45')
   })
 
+  it("the timer's own history.back() after Reset lands on the form's entry and stays on the form", async () => {
+    const app = await openForm()
+    await startFromForm(app)
+    await advance(3_000)
+    await pressBack()
+    await app.user.click(within(exitSheet()).getByRole('button', { name: 'Reset' }))
+
+    // In a browser, that back() pops the timer's entry onto the form's.
+    act(() => {
+      window.dispatchEvent(new PopStateEvent('popstate', { state: { intervalScreen: true } }))
+    })
+
+    expect(screen.getByRole('heading', { name: 'New Workout' })).toBeInTheDocument()
+  })
+
   it('reopening the app mid-workout continues the last session on the timer with its custom times', async () => {
-    const app = openApp()
+    const app = await openForm()
     const work = screen.getByRole('textbox', { name: 'Work (seconds)' })
     await app.user.clear(work)
     await app.user.type(work, '45')
@@ -189,8 +366,34 @@ describe('Android back and reopening', () => {
     expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument()
   })
 
-  it('reopening after a workout was reset (from the back sheet) opens on the form', async () => {
-    const app = openApp()
+  it('after a workout, back on the form returns to the saved workouts', async () => {
+    const app = await openForm()
+    await startFromForm(app)
+    await advance(508_000)
+    await pressBack() // Done → form
+
+    await pressBack()
+
+    expect(screen.getByRole('heading', { name: 'Saved Workouts' })).toBeInTheDocument()
+  })
+
+  it('reopened mid-workout, Reset from the back sheet shows the form, and back from there reaches the saved workouts', async () => {
+    const app = await openForm()
+    await startFromForm(app)
+    await advance(3_000)
+    app.unmount()
+    const reopened = openApp()
+
+    await pressBack()
+    await reopened.user.click(within(exitSheet()).getByRole('button', { name: 'Reset' }))
+    expect(screen.getByRole('heading', { name: 'New Workout' })).toBeInTheDocument()
+
+    await pressBack()
+    expect(screen.getByRole('heading', { name: 'Saved Workouts' })).toBeInTheDocument()
+  })
+
+  it('reopening after a workout was reset (from the back sheet) opens on the saved workouts', async () => {
+    const app = await openForm()
     await startFromForm(app)
     await advance(3_000)
     await pressBack()
@@ -199,11 +402,11 @@ describe('Android back and reopening', () => {
     app.unmount()
     openApp()
 
-    expect(screen.getByRole('heading', { name: 'New Workout' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Saved Workouts' })).toBeInTheDocument()
   })
 
-  it('reopening after a workout finished opens on the form', async () => {
-    const app = openApp()
+  it('reopening after a workout finished opens on the saved workouts', async () => {
+    const app = await openForm()
     await startFromForm(app)
     await advance(508_000)
     expect(screen.getByRole('heading', { name: 'Done' })).toBeInTheDocument()
@@ -211,14 +414,14 @@ describe('Android back and reopening', () => {
     app.unmount()
     openApp()
 
-    expect(screen.getByRole('heading', { name: 'New Workout' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Saved Workouts' })).toBeInTheDocument()
   })
 })
 
 // Default workout: Prepare 8s; set 1 = 7 × (Work 20s, Rest 10s) + Work; 30s break; set 2 = 8 × (Work, Rest).
 describe('App', () => {
   it('after Start on the form, shows the Prepare screen: "Prepare", 8, "Next: Work · 0:20" and chips "Set 1/2" and "Round 1/8"', async () => {
-    const { user } = renderWithProviders(<App />, { advanceTimers: vi.advanceTimersByTime })
+    const { user } = await openForm()
     await user.click(screen.getByRole('button', { name: 'Start' }))
 
     expect(screen.getByRole('heading', { name: 'Prepare' })).toBeInTheDocument()
@@ -229,7 +432,7 @@ describe('App', () => {
   })
 
   it('labels the chips for TalkBack as "Set 1 of 2" and "Round 1 of 8"', async () => {
-    const { user } = renderWithProviders(<App />, { advanceTimers: vi.advanceTimersByTime })
+    const { user } = await openForm()
     await user.click(screen.getByRole('button', { name: 'Start' }))
 
     expect(screen.getByText('Set 1 of 2')).toHaveClass('visually-hidden')
@@ -238,7 +441,7 @@ describe('App', () => {
   })
 
   it('alternates to 10s of Rest after the first Work interval', async () => {
-    const { user } = renderWithProviders(<App />, { advanceTimers: vi.advanceTimersByTime })
+    const { user } = await openForm()
 
     await user.click(screen.getByRole('button', { name: 'Start' }))
     await advance(28_000)
@@ -249,7 +452,7 @@ describe('App', () => {
   })
 
   it("the first Work screen shows 'Round 1/8' and set 1's last Work screen shows 'Round 8/8'", async () => {
-    const { user } = renderWithProviders(<App />, { advanceTimers: vi.advanceTimersByTime })
+    const { user } = await openForm()
 
     await user.click(screen.getByRole('button', { name: 'Start' }))
     await advance(8_000) // first Work
@@ -263,7 +466,7 @@ describe('App', () => {
 
   describe('Rest between sets', () => {
     const startAndAdvance = async (ms: number) => {
-      const app = renderWithProviders(<App />, { advanceTimers: vi.advanceTimersByTime })
+      const app = await openForm()
       await app.user.click(screen.getByRole('button', { name: 'Start' }))
       await advance(ms)
       return app
